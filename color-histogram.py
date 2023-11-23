@@ -17,6 +17,8 @@ parser.add_argument('--threshold', dest='threshold', metavar='TH', choices=range
 					help='threshold (default: {})'.format(TH_DEFAULT))
 parser.add_argument('--show-histogram', dest='show_histogram',
 					action='store_const', default=False, const=True, help='show histogram')
+parser.add_argument('--show-mask', dest='show_mask', action='store_const', default=False, const=True,
+					help='show mask image')
 args = parser.parse_args()
 
 img_name = args.image[0]
@@ -28,7 +30,9 @@ img_size = img_height * img_width
 img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 img_s = img_hsv[..., 1]
 ret, img_s_th = cv2.threshold(img_s, th, 255, cv2.THRESH_BINARY)
-# cv2.imshow("saturation", img_s_th)
+
+if args.show_mask:
+	cv2.imshow("saturation", img_s_th)
 
 hue_histogram = cv2.calcHist([img_hsv], channels=[0], mask=img_s_th, histSize=[N_BINS], ranges=[0, 180])
 hue_histogram_v = np.ravel(hue_histogram)
