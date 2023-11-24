@@ -45,7 +45,7 @@ for img_name in args.image:
 	the_histogram = np.append(hue_histogram_v, value_histogram_v[3])
 	csv_name = Path(img_name).stem + '.csv'
 	csv = open(csv_name, "w")
-	for i in range(args.n_bins):
+	for i in range(args.n_bins + 1):
 		print("{}, {}".format(i, the_histogram[i]), file=csv)
 	csv.close()
 	if args.show_histogram:
