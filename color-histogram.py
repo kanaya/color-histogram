@@ -17,6 +17,9 @@ TH_DEFAULT = 50
 TH_RICE_DEFAULT = 150
 
 # R, BR, Y, G, B 色相の範囲（72段階換算）
+N_COLORS = 5
+COLORS = ['R', 'BR', 'Y', 'G', 'B']
+
 R_LOWER_DEFAULT = 0
 R_UPPER_DEFAULT = 5
 
@@ -121,6 +124,23 @@ for img_name in args.image:
 	for i in range(args.n_bins + 1):
 		print("{}, {}".format(i, the_histogram[i]), file=csv)
 	csv.close()
+	# 心理的ヒストグラムを作成する（色相は72段階であることを前提とする）
+	lower_limits = [r_lower, br_lower, y_lower, g_lower, b_lower]
+	upper_limits = [r_upper, br_upper, y_upper, g_upper, b_upper]
+	uneven_histogram = []
+	for c in range(0, N_COLORS):
+		lower_limit = lower_limits[c]
+		upper_limit = upper_limits[c]
+		slice = the_histogram[lower_limit:upper_limit]
+		s = sum(slice)
+		uneven_histogram.append(s)
+		## print('{}: {}%'.format(COLORS[c], s))
+	# CSVファイルに保存する
+	csv_name2 = Path(img_name).stem + '-uneven.csv'
+	csv2 = open(csv_name2, "w")
+	for i in range(N_COLORS):
+		print("{}, {}".format(COLORS[i], uneven_histogram[i]), file=csv2)
+	csv2.close()
 	# --show-histogramオプションが指定されていたら，ヒストグラムを画面表示する
 	if args.show_histogram:
 		color_list = [colorsys.hsv_to_rgb(h / args.n_bins, 1.0, 1.0) for h in range(args.n_bins)]
