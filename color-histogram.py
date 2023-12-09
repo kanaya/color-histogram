@@ -7,9 +7,16 @@ import colorsys
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from pathlib import Path
 
+# 色相ヒストグラムのデフォルト階数
 N_BINS_DEFAULT = 72
+
+# 彩度によるマスクのしきい値（0-255），おかず部分の認識用
 TH_DEFAULT = 50
 
+# 明度によるマスクのしきい値（0-255），ご飯部分の認識用
+TH_RICE_DEFAULT = 150
+
+# R, BR, Y, G, B 色相の範囲（72段階換算）
 R_LOWER_DEFAULT = 0
 R_UPPER_DEFAULT = 5
 
@@ -25,10 +32,13 @@ G_UPPER_DEFAULT = 24
 B_LOWER_DEFAULT = 30
 B_UPPER_DEFAULT = 35
 
+# 引数を解析する
 parser = argparse.ArgumentParser(description='Create histogram of hue from images.')
 parser.add_argument('image', metavar='IMG', nargs='+', help='image file')
 
-parser.add_argument('--threshold', dest='threshold', metavar='TH', choices=range(0, 256), action='store', default=TH_DEFAULT, help='threshold (default: {})'.format(TH_DEFAULT))
+parser.add_argument('--threshold', dest='threshold', metavar='TH', choices=range(0, 256), action='store', default=TH_DEFAULT, help='saturation threshold for okazu (default: {})'.format(TH_DEFAULT))
+parser.add_argument('--threshold-rice', dest='threshold_rice', metavar='TH_RICE', choices=range(0, 256), action='store', default=TH_RICE_DEFAULT, help='value threshold for rice (default: {})'.format(TH_RICE_DEFAULT))
+
 parser.add_argument('--n-bins', dest='n_bins', metavar='N_BINS', choices=range(1, 72), action='store', default=N_BINS_DEFAULT, help='number of bins (default: {})'.format(N_BINS_DEFAULT))
 
 parser.add_argument('--r-lower', dest='r_lower_limit', metavar='R_LOWER', choices=range(0, 72), action='store', default=R_LOWER_DEFAULT, help='R, lower limit (default: {})'.format(R_LOWER_DEFAULT))
@@ -47,35 +57,71 @@ parser.add_argument('--b-lower', dest='b_lower_limit', metavar='B_LOWER', choice
 parser.add_argument('--b-upper', dest='b_upper_limit', metavar='B_UPPER', choices=range(0, 72), action='store', default=B_UPPER_DEFAULT, help='B, upper limit (default: {})'.format(B_UPPER_DEFAULT))
 
 parser.add_argument('--show-histogram', dest='show_histogram', action='store_const', default=False, const=True, help='show histogram')
-parser.add_argument('--show-mask', dest='show_mask', action='store_const', default=False, const=True,help='show mask image')
+
 args = parser.parse_args()
 
+# 大域変数を初期化する
 th = args.threshold
+th_rice = args.threshold_rice
 r_lower = args.r_lower_limit
+r_upper = args.r_upper_limit
+br_lower = args.br_lower_limit
+br_upper = args.br_upper_limit
+y_lower = args.y_lower_limit
+y_upper = args.y_upper_limit
+g_lower = args.g_lower_limit
+g_upper = args.g_upper_limit
+b_lower = args.b_lower_limit
+b_upper = args.b_upper_limit
 
+# 本体
 for img_name in args.image:
+	# RGB画像を読み込む
 	img = cv2.imread(img_name)
 	img_height, img_width = img.shape[:2]
 	img_size = img_height * img_width
+	# RGB画像をHSV画像へ変換する
 	img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+	# HSV画像からS画像を抜き出す
 	img_s = img_hsv[..., 1]
-	ret, img_s_th = cv2.threshold(img_s, th, 255, cv2.THRESH_BINARY)
-	n_pixel_img_s_th = np.sum(img_s_th) / 255
-	if args.show_mask:
-		cv2.imshow("saturation", img_s_th)
-	hue_histogram = cv2.calcHist([img_hsv], channels=[0], mask=img_s_th, histSize=[args.n_bins], ranges=[0, 180])
-	hue_histogram_v = np.ravel(hue_histogram)
-	hue_histogram_v /= n_pixel_img_s_th
+	# S画像をマスクのしきい値（th）で2値化してSマスク画像を作る
+	ret, img_okazu = cv2.threshold(img_s, th, 255, cv2.THRESH_BINARY)
+	# 2値化したS画像の白ピクセル数を数える（白ピクセル値が255なので全体を255で割る）
+	n_pixel_img_okazu = np.sum(img_okazu) / 255
+	# HSV画像から色相のヒストグラムを生成する
+	hue_histogram = cv2.calcHist([img_hsv], channels=[0], mask=img_okazu, histSize=[args.n_bins], ranges=[0, 180])
+	# 配列を平坦化する
+	hue_histogram_flat = np.ravel(hue_histogram)
+	# HSV画像からV画像を抜き出す
 	img_v = img_hsv[..., 2]
-	value_histogram = cv2.calcHist([img_hsv], channels=[2], mask=None, histSize=[4], ranges=[0, 256])
-	value_histogram_v = np.ravel(value_histogram)
-	value_histogram_v /= img_size
-	the_histogram = np.append(hue_histogram_v, value_histogram_v[3])
+	# V画像からご飯のしきい値(th_rice)で2値化する
+	ret, img_v_th = cv2.threshold(img_v, th_rice, 255, cv2.THRESH_BINARY)
+	# Sマスク画像の反転画像を作る
+	img_okazu_negative = cv2.bitwise_not(img_okazu)
+	# img_v_thとimg_okazu_negativeの積をとる
+	img_gohan = cv2.bitwise_and(img_v_th, img_okazu_negative)
+	# ご飯画像の白ピクセル数を数える
+	n_pixel_img_gohan = np.sum(img_gohan) / 255
+	# おかず部分とご飯部分の合計を計算する
+	n_pixels = n_pixel_img_okazu + n_pixel_img_gohan
+	# おかず色相ヒストグラムを全体のパーセンテージに変換する
+	hue_histogram_flat /= n_pixels
+	# ご飯部分のピクセル数を全体のパーセンテージに変換する
+	gohan = n_pixel_img_gohan / n_pixels
+	## デバッグ用
+	## cv2.imshow("gohan", img_gohan)
+	## cv2.waitKey(0)
+	# おかず色相ヒストグラムにご飯部分を付け足す
+	the_histogram = np.append(hue_histogram_flat, [gohan])
+	# 全体を100倍する
+	the_histogram *= 100
+	# CSVファイルに保存する
 	csv_name = Path(img_name).stem + '.csv'
 	csv = open(csv_name, "w")
 	for i in range(args.n_bins + 1):
 		print("{}, {}".format(i, the_histogram[i]), file=csv)
 	csv.close()
+	# --show-histogramオプションが指定されていたら，ヒストグラムを画面表示する
 	if args.show_histogram:
 		color_list = [colorsys.hsv_to_rgb(h / args.n_bins, 1.0, 1.0) for h in range(args.n_bins)]
 		color_list.append([0.75, 0.75, 0.75])
