@@ -27,47 +27,48 @@ $ python3 color-histogram {画像ファイル1}.jpg
 ヘルプの表示
 
 ```
---threshold {TH}
-```
-
-彩度が`{TH}`未満の場合は色相ヒストグラムの対象としない．
-
-```
---n-bins {N_BINS}
-```
-
-色相ヒストグラムの階層を`{N_BINS}`にする．
-
-```
 --show-histogram
 ```
 
 ヒストグラムを表示する．
 
 ```
---show-mask
+--threshold {TH}
 ```
 
-マスク画像を表示する．（`--show-histogram`と同時に指定すること．）
+彩度が`{TH}`未満の場合は色相ヒストグラム（おかず）の対象としない．
+
+```
+--threshold-rice {TH_RICE}
+```
+
+明度が`{TH_RICE}`未満の場合は白色ヒストグラム（ごはん）の対象としない．
+
+```
+-r-lower {R_LOWER}
+```
+
+赤の範囲の下限を`{R_LOWER}`にする．
+
+```
+-r-upper {R_UPPER}
+```
+
+赤の範囲の上限を`{R_UPPER}`にする．
+
 
 ## 実行方法の例
 
 ### 複数の画像ファイルから色相ヒストグラムを生成する
 
 ```
-$ python3 color-histogram.py *.jpg
+python3 color-histogram.py *.jpg
 ```
 
 ### 色相ヒストグラムを視覚的に確認する
 
 ```
-$ python3 color-histogram.py --show-histogram {画像ファイル1}.jpg
-```
-
-### 色相ヒストグラムとマスク画像を視覚的に確認する
-
-```
-$ python3 color-histogram.py --show-histogram --show-mask {画像ファイル1}.jpg
+python3 color-histogram.py --show-histogram {画像ファイル1}.jpg
 ```
 
 ## 終了方法
